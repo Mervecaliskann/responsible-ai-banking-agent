@@ -94,6 +94,17 @@ class TestRedactForLLM:
         text = "Bu ay Migros ve Netflix icin cok harcadim, Turk Telekom faturami odedim."
         assert privacy.redact_for_llm(text) == text
 
+    def test_name_preceded_by_stopword_is_still_caught(self):
+        # Regression: a leading Title-Case stopword ("Ben") used to "steal"
+        # the first match ("Ben Mehmet"), get rejected for containing a
+        # stopword, and leave "Mehmet Yilmaz" unmatched since the regex
+        # scan doesn't backtrack over a rejected non-overlapping match.
+        result = privacy.redact_for_llm("Ben Mehmet Yilmaz, TC 10000000146, IBAN TR330006100519786457841326")
+        assert "[NAME]" in result
+        assert "Mehmet Yilmaz" not in result
+        assert "[TCKN]" in result
+        assert "[IBAN]" in result
+
     def test_multiple_entities_in_one_message(self):
         text = "TC kimlik numaram 10000000146, IBAN TR330006100519786457841326."
         result = privacy.redact_for_llm(text)

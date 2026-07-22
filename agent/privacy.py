@@ -152,6 +152,17 @@ _GENERIC_STOPWORDS = {
 
 _NAME_STOPWORDS = _MERCHANT_STOPWORDS | _GENERIC_STOPWORDS
 
+# Title-Case forms of the stopwords, for a negative lookahead on the regex's
+# *first* word (see TurkishNameRecognizer below): excluding stopwords only
+# in validate_result() lets a stopword still consume a match - e.g. "Ben
+# Mehmet Yilmaz" would match "Ben Mehmet" first (rejected), and the
+# non-overlapping regex scan would never backtrack to try "Mehmet Yilmaz".
+# Excluding them from the regex itself means the scan skips straight past
+# "Ben" and finds the real pair.
+_STOPWORD_TITLECASE_ALTERNATION = "|".join(
+    re.escape(w) for w in sorted({w.capitalize() for w in _NAME_STOPWORDS}, key=len, reverse=True)
+)
+
 
 class TurkishNameRecognizer(PatternRecognizer):
     """Heuristic 'Ad Soyad' (Title Case word pair) recognizer for Turkish names.
@@ -166,11 +177,17 @@ class TurkishNameRecognizer(PatternRecognizer):
 
     # Presidio's registry applies a case-insensitive flag globally, which
     # would let the character classes below match lowercase text too - the
-    # (?-i:...) scope turns that off just for this pattern.
+    # (?-i:...) scope turns that off just for this pattern. The negative
+    # lookahead excludes stopwords from the *first* word position so a
+    # stopword can't "steal" a match and block the real pair right after it
+    # (see _STOPWORD_TITLECASE_ALTERNATION above).
     PATTERNS = [
         Pattern(
             name="tr_name_pair",
-            regex=rf"(?-i:\b[{_TR_UPPER}][{_TR_LOWER}]+[ ][{_TR_UPPER}][{_TR_LOWER}]+\b)",
+            regex=(
+                rf"(?-i:\b(?!(?:{_STOPWORD_TITLECASE_ALTERNATION})\b)"
+                rf"[{_TR_UPPER}][{_TR_LOWER}]+[ ][{_TR_UPPER}][{_TR_LOWER}]+\b)"
+            ),
             score=0.6,
         )
     ]
