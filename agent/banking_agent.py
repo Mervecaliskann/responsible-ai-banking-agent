@@ -21,7 +21,7 @@ from tools.query_tools import (  # noqa: E402
     get_monthly_summary,
     get_transactions,
 )
-from agent import audit  # noqa: E402
+from agent import audit, privacy  # noqa: E402
 
 load_dotenv()
 
@@ -222,8 +222,15 @@ def build_agent():
 
 
 def ask(agent, customer_id: int, question: str, history: Optional[list[BaseMessage]] = None) -> str:
-    """Tek bir kullanici sorusunu agent'a yollar, yaniti dondurur."""
-    messages = (history or []) + [HumanMessage(content=question)]
+    """Tek bir kullanici sorusunu agent'a yollar, yaniti dondurur.
+
+    The question is PII-redacted before it reaches the LLM (parse_intent
+    and respond both read it from state["messages"]), so raw TCKN, IBAN,
+    phone numbers, and heuristically-detected names never leave this
+    function. Uses the precision-first policy - see agent/privacy.py.
+    """
+    redacted_question = privacy.redact_for_llm(question)
+    messages = (history or []) + [HumanMessage(content=redacted_question)]
     started = time.perf_counter()
     final_state = agent.invoke({"messages": messages, "customer_id": customer_id})
     latency_ms = (time.perf_counter() - started) * 1000
@@ -234,5 +241,7 @@ def ask(agent, customer_id: int, question: str, history: Optional[list[BaseMessa
         tools_called=final_state.get("tools_called", []),
         latency_ms=latency_ms,
         token_usage=final_state.get("token_usage", {}),
+        question=redacted_question,
+        response=final_state["response"],
     )
     return final_state["response"]

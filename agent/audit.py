@@ -5,8 +5,17 @@ run can be parsed and analyzed downstream. Each record captures:
 
     timestamp, request_id, user_id, intent, tools_called, latency_ms, token_usage
 
-NOTE: raw user input is intentionally NOT logged here. PII redaction is a
-separate, upcoming step; until it lands we only record structural metadata.
+user_id is pseudonymized (salted hash) rather than written raw, and any
+free-text fields (question, response) are passed through PII redaction
+before being written — see agent/privacy.py. This is defense-in-depth:
+callers should already be passing redacted text, but nothing reaches disk
+unredacted regardless.
+
+Redaction here uses privacy.redact_for_audit, the recall-first policy
+(includes spaCy NER on top of the precision recognizers) — a false
+positive in a log is harmless, a missed one is a compliance failure. This
+is deliberately more aggressive than the redaction applied to text sent
+to the LLM (privacy.redact_for_llm).
 """
 
 import json
@@ -15,6 +24,8 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+from . import privacy
 
 LOG_DIR = Path(__file__).parent.parent / "logs"
 LOG_FILE = LOG_DIR / "audit.log"
@@ -56,6 +67,8 @@ def log_request(
     latency_ms: float = 0.0,
     token_usage: Optional[dict] = None,
     request_id: Optional[str] = None,
+    question: Optional[str] = None,
+    response: Optional[str] = None,
 ) -> str:
     """Write one structured audit record for an agent request.
 
@@ -66,12 +79,16 @@ def log_request(
     record = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "request_id": request_id,
-        "user_id": user_id,
+        "user_id": privacy.pseudonymize_user_id(user_id),
         "intent": intent,
         "tools_called": tools_called or [],
         "latency_ms": round(float(latency_ms), 2),
         "token_usage": token_usage or {},
     }
+    if question is not None:
+        record["question"] = privacy.redact_for_audit(question)
+    if response is not None:
+        record["response"] = privacy.redact_for_audit(response)
     try:
         _get_logger().info(json.dumps(record, ensure_ascii=False))
     except Exception:  # pragma: no cover - never let auditing break a request
