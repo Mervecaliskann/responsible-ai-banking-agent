@@ -73,7 +73,7 @@ Measured by the automated test suite ([`tests/`](tests/)):
 |---|---|
 | Adversarial prompts blocked | **25/25 (100%)** — prompt injection, prompt/system extraction, customer_id manipulation, SQL injection, financial advice, cross-customer leakage, raw PII leakage |
 | Benign prompts allowed | **7/7 (0% false positives)** |
-| Automated tests passing | **49/49** (31 for PII redaction, 18 for guardrails) |
+| Automated tests passing | **50/50** (32 for PII redaction, 18 for guardrails) |
 | TCKN / IBAN detection | Real checksum algorithms (official Turkish ID checksum, ISO 7064 MOD97-10) — not shape-matching |
 
 These numbers are a regression check on a curated adversarial set, not a security certification — see
@@ -118,7 +118,7 @@ responsible-ai-banking-agent/
 │   ├── privacy.py           # PII detection & redaction (Presidio)
 │   └── guardrails.py        # Input/output guardrails
 ├── tests/
-│   ├── test_privacy.py      # 31 tests
+│   ├── test_privacy.py      # 32 tests
 │   └── test_guardrails.py   # 18 tests
 ├── docs/
 │   └── MODEL_CARD.md        # System card: scope, evaluation, limitations
@@ -164,7 +164,7 @@ python -m pytest tests/ -v
 - **SQLite + pandas** — synthetic data storage and querying
 - **Streamlit** — chat interface
 - **Faker** — synthetic Turkish data generation
-- **pytest** — 49 automated tests
+- **pytest** — 50 automated tests
 
 ## Documentation
 

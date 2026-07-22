@@ -123,7 +123,7 @@ responsible-ai-banking-agent/
 │   ├── privacy.py           # PII tespiti & maskeleme (Presidio)
 │   └── guardrails.py        # Girdi/çıktı guardrail katmanı
 ├── tests/
-│   ├── test_privacy.py      # 31 test
+│   ├── test_privacy.py      # 32 test
 │   └── test_guardrails.py   # 18 test
 ├── docs/
 │   └── MODEL_CARD.md        # Sistem kartı (İngilizce)
@@ -159,7 +159,7 @@ Bu proje, bir bankacılık AI agent'ının sorumlu (responsible AI) şekilde
   Kapsam, değerlendirme sonuçları ve bilinen kısıtlar (ör. Türkçe için
   güvenilir bir NER modelinin bulunmaması) belgelenmiştir.
 
-Ölçülen sonuçlar (49 otomatik test): 25/25 adversarial prompt engellendi
+Ölçülen sonuçlar (50 otomatik test): 25/25 adversarial prompt engellendi
 (%100), 7/7 zararsız prompt doğru şekilde izin verildi (%0 yanlış pozitif).
 Detaylar için İngilizce [README.md](README.md#results) ve
 [model card](docs/MODEL_CARD.md).
@@ -194,4 +194,4 @@ streamlit run app.py
 - **SQLite + pandas** — sentetik veri saklama ve sorgulama
 - **Streamlit** — chat arayüzü
 - **Faker** — Türkçe sentetik veri üretimi
-- **pytest** — 49 otomatik test
+- **pytest** — 50 otomatik test

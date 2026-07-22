@@ -5,7 +5,7 @@ This card follows the [Hugging Face model card](https://huggingface.co/docs/hub/
 apply cleanly to that distinction, this is noted explicitly.
 
 - **Repository:** [responsible-ai-banking-agent](https://github.com/Mervecaliskann/responsible-ai-banking-agent)
-- **Card version:** 1.0, generated against commit `449b2f8` (2026-07-22)
+- **Card version:** 1.1, generated against commit `82a7dd8` (2026-07-23)
 - **Card author / contact:** Merve Çalışkan ([mervcaliskaan@gmail.com](mailto:mervcaliskaan@gmail.com))
 
 ---
@@ -153,9 +153,9 @@ No formal held-out benchmark or human evaluation has been run. What exists is th
 
 | Suite | Tests | What it covers |
 |---|---|---|
-| [`tests/test_privacy.py`](../tests/test_privacy.py) | 31 | TCKN checksum validator (valid/invalid/malformed inputs), IBAN MOD97 checksum validator, `redact_for_llm` precision behavior (ordinary Turkish sentences left untouched, merchant names not flagged, TCKN/IBAN/phone/name redaction), `redact_for_audit` recall behavior (demonstrates it catches strictly more than `redact_for_llm` on the same input), `pseudonymize_user_id` stability/uniqueness, and audit-log wiring (pseudonymization and redaction actually applied before anything hits disk) |
+| [`tests/test_privacy.py`](../tests/test_privacy.py) | 32 | TCKN checksum validator (valid/invalid/malformed inputs), IBAN MOD97 checksum validator, `redact_for_llm` precision behavior (ordinary Turkish sentences left untouched, merchant names not flagged, TCKN/IBAN/phone/name redaction, names preceded by a stopword), `redact_for_audit` recall behavior (demonstrates it catches strictly more than `redact_for_llm` on the same input), `pseudonymize_user_id` stability/uniqueness, and audit-log wiring (pseudonymization and redaction actually applied before anything hits disk) |
 | [`tests/test_guardrails.py`](../tests/test_guardrails.py) | 18 | A curated adversarial-prompt report (see below), individual rule-coverage tests for all 7 rules, and audit-wiring tests for `log_guardrail_block` |
-| **Total** | **49** | All passing as of commit `449b2f8` |
+| **Total** | **50** | All passing as of commit `82a7dd8` |
 
 ### Adversarial prompt report
 
@@ -261,10 +261,30 @@ database, then `streamlit run app.py`.
 
 ---
 
+## Changelog
+
+Notable fixes and changes to the governance layer, kept here rather than only in git history since a reviewer of
+this card is unlikely to read commit logs.
+
+- **2026-07-23 (`82a7dd8`) — Fixed a `TurkishNameRecognizer` false negative on the LLM-input path.** A Title-Case
+  sentence-starter immediately before a real name (e.g. *"Ben Mehmet Yılmaz, TC ..."*, where *Ben* = "I") caused the
+  non-overlapping regex scan to match the sentence-starter and the first name as a pair (*"Ben Mehmet"*), which was
+  then correctly rejected by the stopword filter — but by that point the scan had already consumed both words and
+  never backtracked to test *"Mehmet Yılmaz"* on its own. Net effect: a valid `PERSON`-equivalent (`TR_NAME`) entity
+  was silently missed and reached the LLM unredacted. Found via manual testing of `redact_for_llm`, not by the
+  existing test suite - the 25-prompt adversarial set and the 7-prompt benign set didn't happen to cover
+  "stopword immediately followed by a real name." **Fix:** stopwords are now excluded from matching the *first*
+  word of a candidate pair directly in the regex (a negative lookahead), so the scanner skips past them instead of
+  consuming-then-rejecting. A regression test
+  (`test_name_preceded_by_stopword_is_still_caught` in [`tests/test_privacy.py`](../tests/test_privacy.py)) was
+  added. This is a good illustration of the gap already called out in
+  [Known Limitations](#known-limitations): the regex-heuristic name detector's failure modes are found by hand, not
+  systematically, precisely because there's no Turkish NER model to check it against.
+
 ## Maintenance
 
 - **Model version:** No formal semantic-versioning scheme exists for this repository yet — recommended before any
-  production use. This card is generated against git commit `449b2f8` (2026-07-22); treat it as stale past that
+  production use. This card is generated against git commit `82a7dd8` (2026-07-23); treat it as stale past that
   commit until refreshed.
 - **Base LLM version:** `llama-3.3-70b-versatile`, served by Groq. Groq/Meta control if and when this model is
   updated or deprecated; such a change would not appear in this repository's git history but could change agent
