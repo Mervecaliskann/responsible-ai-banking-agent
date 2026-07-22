@@ -128,7 +128,8 @@ responsible-ai-banking-agent/
 │   └── query_tools.py       # LangChain tools (SQLite + pandas)
 ├── agent/
 │   ├── banking_agent.py     # LangGraph state machine
-│   └── audit.py             # Structured audit logging
+│   ├── audit.py             # Structured audit logging
+│   └── privacy.py           # PII detection & redaction (Presidio)
 ├── app.py                   # Streamlit chat interface
 ├── requirements.txt
 └── .env.example
@@ -142,7 +143,16 @@ AI agent operate responsibly:
 - **Structured audit logging** — implemented in [`agent/audit.py`](agent/audit.py).
   Every decision the agent makes (intent classification, data queried,
   response generated) is logged in a traceable way.
-- **PII redaction** — in progress.
+- **PII redaction** — implemented in [`agent/privacy.py`](agent/privacy.py)
+  using Microsoft Presidio, with checksum-validated custom recognizers for
+  Turkish TC Kimlik No and IBAN, plus a stoplist-filtered heuristic for
+  Turkish names. Two policies are applied depending on where the text is
+  headed: a precision-first pass (no NER) before user input reaches the
+  LLM, and a recall-first pass (adds spaCy NER) before anything is written
+  to the audit log. `user_id` is pseudonymized with a salted hash in audit
+  records rather than stored raw. Known limitation: no Turkish NER model is
+  available, so name detection on the LLM-input path is regex-based rather
+  than model-based — to be documented in the model card.
 - **Guardrails** — in progress.
 - **Model card** — in progress.
 
@@ -293,7 +303,8 @@ responsible-ai-banking-agent/
 │   └── query_tools.py       # LangChain tool'ları (SQLite + pandas)
 ├── agent/
 │   ├── banking_agent.py     # LangGraph state machine
-│   └── audit.py             # Yapılandırılmış audit logging
+│   ├── audit.py             # Yapılandırılmış audit logging
+│   └── privacy.py           # PII tespiti & maskeleme (Presidio)
 ├── app.py                   # Streamlit chat arayüzü
 ├── requirements.txt
 └── .env.example
@@ -307,7 +318,17 @@ Bu proje, bir bankacılık AI agent'ının sorumlu (responsible AI) şekilde
 - **Structured audit logging** — [`agent/audit.py`](agent/audit.py)
   ile implemente edildi. Agent'ın aldığı her karar (niyet sınıflandırma,
   sorgulanan veri, üretilen yanıt) izlenebilir şekilde loglanır.
-- **PII redaction** — geliştirme aşamasında.
+- **PII redaction** — [`agent/privacy.py`](agent/privacy.py) ile Microsoft
+  Presidio kullanılarak implemente edildi. Türkiye'ye özgü TC Kimlik No ve
+  IBAN icin checksum dogrulamali custom recognizer'lar, ayrica isim tespiti
+  icin stopword listesiyle filtrelenmis bir regex sezgiseli eklendi. Metnin
+  nereye gittigine gore iki farkli politika uygulanir: kullanici girdisi
+  LLM'e ulasmadan once precision-first (NER'siz) bir gecis, audit log'a
+  yazilmadan once ise recall-first (spaCy NER eklenmis) bir gecis.
+  `user_id`, audit kayitlarinda ham haliyle degil, salted hash ile
+  pseudonimize edilerek saklanir. Bilinen kisit: Turkce icin bir NER modeli
+  mevcut degil, bu yuzden LLM'e giden yoldaki isim tespiti model tabanli
+  degil regex tabanli — model card'da belgelenecek.
 - **Guardrails** — geliştirme aşamasında.
 - **Model card** — geliştirme aşamasında.
 
