@@ -94,3 +94,42 @@ def log_request(
     except Exception:  # pragma: no cover - never let auditing break a request
         logging.getLogger(__name__).exception("failed to write audit record")
     return request_id
+
+
+def log_guardrail_block(
+    *,
+    user_id,
+    direction: str,
+    rule: Optional[str],
+    reason: Optional[str],
+    matched_text: Optional[str] = None,
+    intent: Optional[str] = None,
+    request_id: Optional[str] = None,
+) -> str:
+    """Write one audit record for a blocked guardrail decision.
+
+    `direction` is "input" (blocked before reaching the LLM) or "output"
+    (blocked before reaching the user) - see agent/guardrails.py.
+    matched_text is the short offending excerpt, not the full message; it
+    is still passed through redact_for_audit since it may itself contain
+    PII (e.g. a leaked TCKN). Never raises: audit logging must not break
+    a live agent request.
+    """
+    request_id = request_id or new_request_id()
+    record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "request_id": request_id,
+        "event": "guardrail_block",
+        "direction": direction,
+        "user_id": privacy.pseudonymize_user_id(user_id),
+        "rule": rule,
+        "reason": reason,
+        "intent": intent,
+    }
+    if matched_text is not None:
+        record["matched_text"] = privacy.redact_for_audit(matched_text)
+    try:
+        _get_logger().info(json.dumps(record, ensure_ascii=False))
+    except Exception:  # pragma: no cover - never let auditing break a request
+        logging.getLogger(__name__).exception("failed to write guardrail audit record")
+    return request_id

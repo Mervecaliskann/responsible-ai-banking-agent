@@ -21,13 +21,22 @@ from tools.query_tools import (  # noqa: E402
     get_monthly_summary,
     get_transactions,
 )
-from agent import audit, privacy  # noqa: E402
+from agent import audit, guardrails, privacy  # noqa: E402
 
 load_dotenv()
 
 MODEL_NAME = "llama-3.3-70b-versatile"
 INTENTS = {"balance", "transactions", "spending", "anomaly", "general"}
 CATEGORIES = ["market", "fatura", "restoran", "ulaşım", "eğlence", "sağlık", "ATM"]
+
+INPUT_BLOCKED_MESSAGE = (
+    "Bu istegi isleyemiyorum. Lutfen sadece kendi hesap bilgilerinizle ilgili "
+    "bankacilik sorulari sorun."
+)
+OUTPUT_BLOCKED_MESSAGE = (
+    "Bu yanit guvenlik politikalarimiz geregi gosterilemiyor. Lutfen sorunuzu "
+    "farkli sekilde ifade edin."
+)
 
 
 def _llm() -> ChatGroq:
@@ -224,16 +233,43 @@ def build_agent():
 def ask(agent, customer_id: int, question: str, history: Optional[list[BaseMessage]] = None) -> str:
     """Tek bir kullanici sorusunu agent'a yollar, yaniti dondurur.
 
-    The question is PII-redacted before it reaches the LLM (parse_intent
-    and respond both read it from state["messages"]), so raw TCKN, IBAN,
-    phone numbers, and heuristically-detected names never leave this
-    function. Uses the precision-first policy - see agent/privacy.py.
+    Guardrails run before privacy redaction on the way in, and after the
+    LLM response on the way out - see agent/guardrails.py. A blocked input
+    never reaches the LLM at all. The question is PII-redacted before it
+    reaches the LLM (parse_intent and respond both read it from
+    state["messages"]), so raw TCKN, IBAN, phone numbers, and
+    heuristically-detected names never leave this function. Uses the
+    precision-first policy - see agent/privacy.py.
     """
+    input_check = guardrails.check_input(question, customer_id)
+    if input_check.blocked:
+        audit.log_guardrail_block(
+            user_id=customer_id,
+            direction="input",
+            rule=input_check.rule,
+            reason=input_check.reason,
+            matched_text=input_check.matched_text,
+        )
+        return INPUT_BLOCKED_MESSAGE
+
     redacted_question = privacy.redact_for_llm(question)
     messages = (history or []) + [HumanMessage(content=redacted_question)]
     started = time.perf_counter()
     final_state = agent.invoke({"messages": messages, "customer_id": customer_id})
     latency_ms = (time.perf_counter() - started) * 1000
+
+    reply = final_state["response"]
+    output_check = guardrails.check_output(reply, customer_id)
+    if output_check.blocked:
+        audit.log_guardrail_block(
+            user_id=customer_id,
+            direction="output",
+            rule=output_check.rule,
+            reason=output_check.reason,
+            matched_text=output_check.matched_text,
+            intent=final_state.get("intent"),
+        )
+        reply = OUTPUT_BLOCKED_MESSAGE
 
     audit.log_request(
         user_id=customer_id,
@@ -242,6 +278,6 @@ def ask(agent, customer_id: int, question: str, history: Optional[list[BaseMessa
         latency_ms=latency_ms,
         token_usage=final_state.get("token_usage", {}),
         question=redacted_question,
-        response=final_state["response"],
+        response=reply,
     )
-    return final_state["response"]
+    return reply
