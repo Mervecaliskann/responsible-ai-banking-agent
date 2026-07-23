@@ -164,6 +164,24 @@ Bu proje, bir bankacılık AI agent'ının sorumlu (responsible AI) şekilde
 Detaylar için İngilizce [README.md](README.md#results) ve
 [model card](docs/MODEL_CARD.md).
 
+## Kanıt
+
+![Audit log](assets/log.png)
+
+`logs/audit.log` dosyasından, agent gerçekten çalıştırılarak elde edilmiş iki
+gerçek satır:
+
+- **Normal istek** (üst satır) — içinde isim ve TC Kimlik No geçen bir soru,
+  diske yazılmadan önce her ikisi de maskelenerek (`[NAME]`, `[TCKN]`)
+  loglanır.
+- **Engellenen istek** (alt satır) — bir prompt injection girişimi
+  `prompt_injection` kuralını tetikler ve `guardrail_block` olayı olarak
+  loglanır. İki detay dikkat çekici: `intent` alanı `null`, çünkü engelleme
+  girdi aşamasında, LLM hiç çağrılmadan gerçekleşir — sınıflandırılacak bir
+  niyet yoktur. Ayrıca `matched_text` — kuralı tetikleyen ifadenin kendisi —
+  de maskelenmiştir (`[NAME]`), çünkü bir güvenlik logu da bir saldırı
+  yüzeyidir; önlemeye çalıştığı PII'yi kendisi sızdıramaz.
+
 ## Kurulum ve Çalıştırma
 
 ```bash

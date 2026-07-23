@@ -82,6 +82,22 @@ phrasing, encoding tricks, multi-turn attacks, independent red-teaming).
 
 ---
 
+## Evidence
+
+![Audit log](assets/log.png)
+
+Two real lines from `logs/audit.log`, produced by actually running the agent:
+
+- **Normal request** (top line) — a question containing a name and a TC Kimlik No is logged with both redacted
+  (`[NAME]`, `[TCKN]`) before it ever touches disk.
+- **Blocked request** (bottom line) — a prompt-injection attempt trips the `prompt_injection` rule and is logged as
+  a `guardrail_block` event. Two things to notice: `intent` is `null`, because the block happens on input, before
+  the LLM is ever called — there's nothing to classify. And `matched_text` — the very evidence of what tripped the
+  rule — is itself redacted (`[NAME]`), because a security log is an attack surface too; it can't be allowed to
+  leak the PII it exists to catch.
+
+---
+
 ## System overview
 
 The agent classifies a question's intent (`balance` / `transactions` / `spending` / `anomaly` / `general`), routes
