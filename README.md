@@ -1,7 +1,11 @@
 # Responsible AI Banking Agent
 
-**Live Demo:** huggingface.co/spaces/Mervecaliskan/banking-ai-agent
+**Live demo (baseline agent — before the governance layer):** huggingface.co/spaces/Mervecaliskan/banking-ai-agent
 **Türkçe:** [README.tr.md](README.tr.md)
+
+> The deployed Space predates this repo's PII redaction, guardrails, and audit logging, so it behaves differently:
+> it accepts an identity typed into the chat, while the current version ignores that and uses the trusted,
+> session-scoped `customer_id` instead.
 
 A conversational banking assistant — and the governance layer that makes it deployable in a regulated environment.
 

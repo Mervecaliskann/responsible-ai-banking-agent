@@ -1,7 +1,11 @@
 # Responsible AI Banking Agent
 
-**Live Demo:** huggingface.co/spaces/Mervecaliskan/banking-ai-agent
+**Live demo (governance katmanından önceki baseline agent):** huggingface.co/spaces/Mervecaliskan/banking-ai-agent
 **English:** [README.md](README.md)
+
+> Deploy edilmiş Space, bu repodaki PII redaction, guardrails ve audit logging katmanlarından önceki haldir; bu
+> yüzden davranışı farklıdır: sohbete yazılan bir kimliği kabul eder, oysa güncel sürüm bunu yok sayıp güvenilir,
+> session-scoped `customer_id` değerini kullanır.
 
 Herhangi bir bankacılık kurumu için kullanılabilecek, [LangGraph](https://www.langchain.com/langgraph)
 state machine mimarisiyle çalışan, [Groq](https://groq.com/) üzerinde
