@@ -9,7 +9,7 @@
 
 Herhangi bir bankacılık kurumu için kullanılabilecek, [LangGraph](https://www.langchain.com/langgraph)
 state machine mimarisiyle çalışan, [Groq](https://groq.com/) üzerinde
-Llama-3.3 modelini kullanan konuşma tabanlı bir bankacılık asistanı.
+gpt-oss-120b modelini kullanan (ilk sürüm Groq'un artık kaldırdığı llama-3.3-70b-versatile ile çalışıyordu) konuşma tabanlı bir bankacılık asistanı.
 Gerçek müşteri verisi kullanmadan, sentetik olarak üretilmiş hesap ve
 işlem kayıtları üzerinden çalışır; kullanıcı doğal dilde soru sorar, agent
 bu soruyu SQL/pandas sorgularına çevirip Türkçe, anlaşılır bir yanıt üretir.
@@ -63,7 +63,7 @@ yapan bir graph olarak tasarlanmıştır:
                      └───────────┘
 ```
 
-- **parse_intent**: `ChatGroq` (llama-3.3-70b-versatile) kullanıcı mesajını
+- **parse_intent**: `ChatGroq` (openai/gpt-oss-120b) kullanıcı mesajını
   JSON formatında sınıflandırır — niyet (`intent`), zaman aralığı (`period`:
   bu ay / geçen ay), kategori ve varsa işlem limiti çıkarılır.
 - **conditional routing**: `add_conditional_edges` ile, ayrı bir yürütme
@@ -211,7 +211,7 @@ streamlit run app.py
 
 - **LangGraph** — niyet bazlı koşullu yönlendirme yapan state machine
 - **LangChain** — tool tanımları
-- **Groq (Llama-3.3-70b-versatile)** — niyet sınıflandırma ve doğal dil yanıt üretimi
+- **Groq (`openai/gpt-oss-120b`)** — niyet sınıflandırma ve doğal dil yanıt üretimi
 - **Microsoft Presidio + spaCy** — PII tespiti ve maskeleme
 - **SQLite + pandas** — sentetik veri saklama ve sorgulama
 - **Streamlit** — chat arayüzü

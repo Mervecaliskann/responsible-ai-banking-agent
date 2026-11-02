@@ -14,7 +14,7 @@ A conversational banking assistant — and the governance layer that makes it de
 ## Why this repo exists
 
 **The starting point** was a working [LangGraph](https://www.langchain.com/langgraph) banking agent: an
-intent-routed assistant, powered by `llama-3.3-70b-versatile` on [Groq](https://groq.com/), that answers natural-
+intent-routed assistant, powered by `openai/gpt-oss-120b` on [Groq](https://groq.com/) (originally `llama-3.3-70b-versatile`, which Groq has since retired), that answers natural-
 language questions ("what's my balance?", "what did I spend the most on this month?") against synthetic account and
 transaction data.
 
@@ -179,7 +179,7 @@ python -m pytest tests/ -v
 
 - **LangGraph** — intent-based conditional routing state machine
 - **LangChain** — tool definitions
-- **Groq (Llama-3.3-70b-versatile)** — intent classification and natural-language response generation
+- **Groq (`openai/gpt-oss-120b`)** — intent classification and natural-language response generation
 - **Microsoft Presidio + spaCy** — PII detection and redaction
 - **SQLite + pandas** — synthetic data storage and querying
 - **Streamlit** — chat interface
