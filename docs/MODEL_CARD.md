@@ -28,7 +28,7 @@ entirely external (see below).
 
 ### Base model
 
-- **Model:** `llama-3.3-70b-versatile`
+- **Model:** `openai/gpt-oss-120b` (the card was first written for `llama-3.3-70b-versatile`, which Groq retired; the code was switched to `openai/gpt-oss-120b`)
 - **Served via:** [Groq](https://groq.com/) API (`langchain-groq`), unmodified, `temperature=0`
 - **Fine-tuned from:** N/A — used as-is via API; behavior changes if Groq updates or deprecates this model are outside
   this repository's control (see [Maintenance](#maintenance))
@@ -242,7 +242,7 @@ Stated explicitly and without softening, since this is the section most likely t
 ## Technical Specifications
 
 - **Orchestration:** LangGraph (`langgraph`)
-- **LLM client:** `langchain-groq` → Groq-hosted `llama-3.3-70b-versatile`, `temperature=0`
+- **LLM client:** `langchain-groq` → Groq-hosted `openai/gpt-oss-120b`, `temperature=0`
 - **Data layer:** SQLite (`data/banking.db`) + `pandas`
 - **PII detection:** `presidio-analyzer` + `presidio-anonymizer`, with `spacy` (`en_core_web_sm`) for the
   recall-path NER
@@ -286,7 +286,7 @@ this card is unlikely to read commit logs.
 - **Model version:** No formal semantic-versioning scheme exists for this repository yet — recommended before any
   production use. This card is generated against git commit `82a7dd8` (2026-07-23); treat it as stale past that
   commit until refreshed.
-- **Base LLM version:** `llama-3.3-70b-versatile`, served by Groq. Groq/Meta control if and when this model is
+- **Base LLM version:** `openai/gpt-oss-120b`, served by Groq. This already happened once: `llama-3.3-70b-versatile` was retired and the model had to be replaced. Groq and the model provider control if and when this model is
   updated or deprecated; such a change would not appear in this repository's git history but could change agent
   behavior. There is currently no automated check for base-model drift.
 - **Owner:** Merve Çalışkan ([mervcaliskaan@gmail.com](mailto:mervcaliskaan@gmail.com), GitHub: `Mervecaliskann`)
