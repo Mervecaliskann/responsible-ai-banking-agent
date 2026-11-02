@@ -25,7 +25,7 @@ from agent import audit, guardrails, privacy  # noqa: E402
 
 load_dotenv()
 
-MODEL_NAME = "llama-3.3-70b-versatile"
+MODEL_NAME = "openai/gpt-oss-120b"
 INTENTS = {"balance", "transactions", "spending", "anomaly", "general"}
 CATEGORIES = ["market", "fatura", "restoran", "ulaşım", "eğlence", "sağlık", "ATM"]
 
