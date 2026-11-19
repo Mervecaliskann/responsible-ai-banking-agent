@@ -1,32 +1,31 @@
 # Responsible AI Banking Agent
 
-**Live demo (baseline agent — before the governance layer):** huggingface.co/spaces/Mervecaliskan/banking-ai-agent
+**Live demo (baseline agent, before the governance layer):** huggingface.co/spaces/Mervecaliskan/banking-ai-agent
 **Türkçe:** [README.tr.md](README.tr.md)
 
-> The deployed Space predates this repo's PII redaction, guardrails, and audit logging, so it behaves differently:
-> it accepts an identity typed into the chat, while the current version ignores that and uses the trusted,
+> The deployed Space is older than the PII redaction, guardrails and audit logging in this repo, so it behaves differently.
+> It accepts an identity typed into the chat. The current version ignores that and uses the trusted,
 > session-scoped `customer_id` instead.
 
-A conversational banking assistant — and the governance layer that makes it deployable in a regulated environment.
+A conversational banking assistant, plus the governance layer it needs before it can be used in a regulated environment.
 
 ---
 
 ## Why this repo exists
 
-**The starting point** was a working [LangGraph](https://www.langchain.com/langgraph) banking agent: an
-intent-routed assistant, powered by `openai/gpt-oss-120b` on [Groq](https://groq.com/) (originally `llama-3.3-70b-versatile`, which Groq has since retired), that answers natural-
-language questions ("what's my balance?", "what did I spend the most on this month?") against synthetic account and
-transaction data.
+**Starting point:** a working [LangGraph](https://www.langchain.com/langgraph) banking agent. It routes questions by
+intent and answers them ("what's my balance?", "what did I spend the most on this month?") from synthetic account and
+transaction data. It runs on `openai/gpt-oss-120b` on [Groq](https://groq.com/); it originally used
+`llama-3.3-70b-versatile`, which Groq has since retired.
 
-**The problem:** it worked, but it wasn't deployable anywhere a bank would actually put it. There was no PII
-protection — a user's TC Kimlik No, IBAN, or phone number typed into the chat went straight to the LLM and straight
-into the logs. There were no guardrails — nothing stopped a prompt-injection attempt, a request for another
-customer's data, or the agent drifting into investment advice. There was no audit trail — no record of what the
-agent decided or why. And there was no documentation of any of this for a reviewer to check.
+**The problem:** the agent worked, but a bank could not deploy it.
+- **No PII protection:** a TC Kimlik No, IBAN or phone number typed into the chat went straight to the LLM and into the logs.
+- **No guardrails:** nothing stopped prompt injection, requests for another customer's data, or investment advice.
+- **No audit trail:** there was no record of what the agent decided or why.
+- **No documentation** for a reviewer to check.
 
-**What this repo adds** is the governance layer that closes those gaps: PII redaction, input/output guardrails, and
-structured audit logging, sitting around the original agent without changing its core logic — plus the tests and
-documentation to back it up. That's the story this README tells.
+**What this repo adds:** PII redaction, input/output guardrails and structured audit logging around the original
+agent, without changing its core logic. Tests and a model card document the results.
 
 ---
 
@@ -36,25 +35,25 @@ documentation to back it up. That's the story this README tells.
 flowchart TD
     A["User question"] --> B{"1. Input Guardrails<br/>agent/guardrails.py"}
     B -- blocked --> B1["Audit Log<br/>guardrail_block"] --> B2["Fixed refusal<br/>LLM never called"]
-    B -- allowed --> C["2. PII Redaction<br/>agent/privacy.py<br/>redact_for_llm() — precision-first, no NER"]
-    C --> D["3. LangGraph Agent<br/>agent/banking_agent.py<br/>parse_intent → route →<br/>query_data / summarize / alert → respond<br/>customer_id: trusted & session-scoped"]
+    B -- allowed --> C["2. PII Redaction<br/>agent/privacy.py<br/>redact_for_llm(): precision-first, no NER"]
+    C --> D["3. LangGraph Agent<br/>agent/banking_agent.py<br/>parse_intent → route →<br/>query_data / summarize / alert → respond<br/>customer_id: trusted, session-scoped"]
     D --> E{"4. Output Guardrails<br/>agent/guardrails.py"}
     E -- blocked --> E1["Audit Log<br/>guardrail_block"] --> E2["Response replaced"]
-    E -- allowed --> F["5. Audit Log<br/>agent/audit.py — log_request()<br/>redact_for_audit(), pseudonymized user_id"]
+    E -- allowed --> F["5. Audit Log<br/>agent/audit.py: log_request()<br/>redact_for_audit(), pseudonymized user_id"]
     E2 --> F
     F --> G["User reply"]
 ```
 
-Two things worth noticing in this diagram:
+Two design choices in this flow:
 
-- **Redaction is asymmetric on purpose.** Text heading to the LLM is redacted with a precision-first policy (no
-  NER) — a false-positive redaction there could corrupt words the intent classifier depends on. Text heading to the
-  audit log uses a recall-first policy (adds spaCy NER) — a false positive in a log is harmless, a missed one is a
-  compliance failure.
-- **A blocked input never reaches the LLM at all.** Guardrails run before the first model call, not after, so
-  prompt-injection attempts cost nothing beyond a regex check.
+- **Redaction uses two different policies.** Text sent to the LLM uses a precision-first policy without NER, because a
+  wrong redaction there could remove words the intent classifier needs. Text written to the audit log uses a
+  recall-first policy with spaCy NER, because an extra redaction in a log does no harm, but a missed one is a
+  compliance problem.
+- **A blocked input never reaches the LLM.** Guardrails run before the first model call, so a prompt-injection
+  attempt costs only a regex check.
 
-Full rationale, including known gaps, is in the [model card](docs/MODEL_CARD.md).
+The full reasoning, including known gaps, is in the [model card](docs/MODEL_CARD.md).
 
 ---
 
@@ -62,10 +61,10 @@ Full rationale, including known gaps, is in the [model card](docs/MODEL_CARD.md)
 
 | Component | What it does | Code |
 |---|---|---|
-| **PII redaction** | Microsoft Presidio, with checksum-validated custom recognizers for Turkish TC Kimlik No (official checksum) and IBAN (ISO 7064 MOD97), plus a stoplist-filtered Turkish name heuristic. Two policies — precision-first for the LLM path, recall-first for the audit path. | [`agent/privacy.py`](agent/privacy.py) |
-| **Guardrails** | Input: prompt injection, prompt/system extraction, customer_id manipulation, SQL-injection-shaped input. Output: financial/investment advice, cross-customer leakage, raw PII that survived redaction. Every block is a structured, logged decision. | [`agent/guardrails.py`](agent/guardrails.py) |
-| **Audit logging** | One JSON line per request and per guardrail block: intent, tools called, latency, token usage, redacted question/response. `user_id` is pseudonymized (salted hash), never stored raw. | [`agent/audit.py`](agent/audit.py) |
-| **Model card** | System overview, intended/out-of-scope use, evaluation results, and known limitations, written for a reviewer who wasn't in the room when this was built. | [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) |
+| **PII redaction** | Microsoft Presidio with custom recognizers for Turkish TC Kimlik No (official checksum) and IBAN (ISO 7064 MOD97), plus a Turkish name heuristic with a stoplist. Precision-first policy for the LLM path, recall-first policy for the audit path. | [`agent/privacy.py`](agent/privacy.py) |
+| **Guardrails** | Input: prompt injection, prompt/system extraction, customer_id manipulation, SQL-injection-like input. Output: financial or investment advice, cross-customer leakage, raw PII that survived redaction. Every block is logged. | [`agent/guardrails.py`](agent/guardrails.py) |
+| **Audit logging** | One JSON line per request and per guardrail block: intent, tools called, latency, token usage, redacted question and response. `user_id` is pseudonymized with a salted hash and never stored raw. | [`agent/audit.py`](agent/audit.py) |
+| **Model card** | System overview, intended and out-of-scope use, evaluation results and known limitations. | [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) |
 
 ---
 
@@ -75,14 +74,14 @@ Measured by the automated test suite ([`tests/`](tests/)):
 
 | Check | Result |
 |---|---|
-| Adversarial prompts blocked | **25/25 (100%)** — prompt injection, prompt/system extraction, customer_id manipulation, SQL injection, financial advice, cross-customer leakage, raw PII leakage |
+| Adversarial prompts blocked | **25/25 (100%)**: prompt injection, prompt/system extraction, customer_id manipulation, SQL injection, financial advice, cross-customer leakage, raw PII leakage |
 | Benign prompts allowed | **7/7 (0% false positives)** |
 | Automated tests passing | **50/50** (32 for PII redaction, 18 for guardrails) |
-| TCKN / IBAN detection | Real checksum algorithms (official Turkish ID checksum, ISO 7064 MOD97-10) — not shape-matching |
+| TCKN / IBAN detection | Real checksum algorithms (official Turkish ID checksum, ISO 7064 MOD97-10), not only pattern matching |
 
-These numbers are a regression check on a curated adversarial set, not a security certification — see
-[Known Limitations](docs/MODEL_CARD.md#known-limitations) in the model card for what this doesn't cover (novel
-phrasing, encoding tricks, multi-turn attacks, independent red-teaming).
+These numbers are a regression check on a curated adversarial set, not a security certification. The
+[Known Limitations](docs/MODEL_CARD.md#known-limitations) section of the model card lists what they do not cover:
+new phrasings, encoding tricks, multi-turn attacks and independent red-teaming.
 
 ---
 
@@ -90,22 +89,20 @@ phrasing, encoding tricks, multi-turn attacks, independent red-teaming).
 
 ![Audit log](assets/log.png)
 
-Two real lines from `logs/audit.log`, produced by actually running the agent:
+Two real lines from `logs/audit.log`, produced by running the agent:
 
-- **Normal request** (top line) — a question containing a name and a TC Kimlik No is logged with both redacted
-  (`[NAME]`, `[TCKN]`) before it ever touches disk.
-- **Blocked request** (bottom line) — a prompt-injection attempt trips the `prompt_injection` rule and is logged as
-  a `guardrail_block` event. Two things to notice: `intent` is `null`, because the block happens on input, before
-  the LLM is ever called — there's nothing to classify. And `matched_text` — the very evidence of what tripped the
-  rule — is itself redacted (`[NAME]`), because a security log is an attack surface too; it can't be allowed to
-  leak the PII it exists to catch.
+- **Normal request (top line):** a question with a name and a TC Kimlik No is logged with both redacted
+  (`[NAME]`, `[TCKN]`) before anything is written to disk.
+- **Blocked request (bottom line):** a prompt-injection attempt matches the `prompt_injection` rule and is logged as a
+  `guardrail_block` event. `intent` is `null` because the block happens on input, before the LLM is called.
+  `matched_text` is also redacted (`[NAME]`), so the security log itself does not leak PII.
 
 ---
 
 ## System overview
 
-The agent classifies a question's intent (`balance` / `transactions` / `spending` / `anomaly` / `general`), routes
-to a matching tool, and turns the result into a natural-language reply:
+The agent classifies the intent of a question (`balance` / `transactions` / `spending` / `anomaly` / `general`),
+routes it to a matching tool and turns the result into a reply:
 
 | Question | Routes to |
 |---|---|
@@ -114,9 +111,9 @@ to a matching tool, and turns the result into a natural-language reply:
 | "What did I spend the most on this month?" | `summarize` (spending) |
 | "Is there more spending than usual this month?" | `alert` (anomaly) |
 
-All data is synthetic — [`data/generate_data.py`](data/generate_data.py) generates 10 customers and ~550
-transactions via `Faker('tr_TR')`, including a deliberately injected spending anomaly so the anomaly-detection path
-has something real to catch. No real banking infrastructure or customer data is used anywhere in this system.
+All data is synthetic. [`data/generate_data.py`](data/generate_data.py) creates 10 customers and about 550
+transactions with `Faker('tr_TR')`, including one injected spending anomaly for the anomaly path to catch. No real
+banking system or customer data is used.
 
 ![Demo Screenshot](assets/demo_screenshot.png)
 
@@ -161,7 +158,7 @@ pip install -r requirements.txt
 
 # 3. Add your GROQ_API_KEY to the .env file
 cp .env.example .env
-# in .env: GROQ_API_KEY=sk-...
+# in .env: GROQ_API_KEY=gsk_...
 
 # 4. Generate synthetic data
 python data/generate_data.py
@@ -177,16 +174,16 @@ python -m pytest tests/ -v
 
 ## Tech Stack
 
-- **LangGraph** — intent-based conditional routing state machine
-- **LangChain** — tool definitions
-- **Groq (`openai/gpt-oss-120b`)** — intent classification and natural-language response generation
-- **Microsoft Presidio + spaCy** — PII detection and redaction
-- **SQLite + pandas** — synthetic data storage and querying
-- **Streamlit** — chat interface
-- **Faker** — synthetic Turkish data generation
-- **pytest** — 50 automated tests
+- **LangGraph:** intent-based routing with a state machine
+- **LangChain:** tool definitions
+- **Groq (`openai/gpt-oss-120b`):** intent classification and reply generation
+- **Microsoft Presidio + spaCy:** PII detection and redaction
+- **SQLite + pandas:** synthetic data storage and queries
+- **Streamlit:** chat interface
+- **Faker:** synthetic Turkish data
+- **pytest:** 50 automated tests
 
 ## Documentation
 
-- [Model Card](docs/MODEL_CARD.md) — scope, evaluation results, known limitations, risks and mitigations
-- [README.tr.md](README.tr.md) — Turkish version
+- [Model Card](docs/MODEL_CARD.md): scope, evaluation results, known limitations, risks and mitigations
+- [README.tr.md](README.tr.md): Turkish version
